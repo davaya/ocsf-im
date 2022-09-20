@@ -1,2 +1,1 @@
-# ocsf-im
-Tool to generate schema from OCSF framework
+# Generate a Schema from OCSF Framework
