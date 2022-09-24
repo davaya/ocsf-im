@@ -2,6 +2,7 @@ import fire
 import jadn
 import json
 import os
+from pathlib import Path
 import shutil
 from io import TextIOWrapper
 from urllib.request import urlopen, Request
@@ -14,9 +15,9 @@ An IM (abstract schema) validates messages in multiple data formats.
 The framework files can be read directly from the OCSF repo or from a local clone. 
 """
 
-OCSF_DIR = os.path.join('..', 'ocsf-schema')
+OCSF_DIR = '../ocsf-schema'
 OCSF_REPO = 'https://api.github.com/repos/ocsf/ocsf-schema/contents/'
-OCSF_ROOT = OCSF_REPO       # select local or remote location for framework files
+OCSF_ROOT = OCSF_DIR       # select local or remote location for framework files
 OUTPUT_DIR = 'Out'
 
 # GitHubToken should contain a GitHub personal access token with only public_repo scope to avoid rate limiting
@@ -40,27 +41,37 @@ def scandir(path: str) -> list:
     Return directory contents as a list of os.DirEntry (local) or WebDirEntry (GitHub) instances
     """
     u = urlparse(path)
-    if all([u.scheme, u.netloc]):
-        dlist = []
-        with urlopen(Request(path, headers=AUTH)) as d:
-            for dl in json.loads(d.read().decode()):
-                url = 'url' if dl['type'] == 'dir' else 'download_url'
-                dlist += [WebDirEntry(dl['name'], dl['type'], dl['url'], dl[url])]
-    else:
-        with os.scandir(path) as sl:
-            dlist = [s for s in sl]
+    dlist = []
+    try:
+        if all([u.scheme, u.netloc]):
+            with urlopen(Request(path, headers=AUTH)) as d:
+                for dl in json.loads(d.read().decode()):
+                    url = 'url' if dl['type'] == 'dir' else 'download_url'
+                    dlist += [WebDirEntry(dl['name'], dl['type'], dl['url'], dl[url])]
+        else:
+            with os.scandir(path) as sl:
+                dlist = [s for s in sl]
+    except FileNotFoundError as e:
+        pass
     return dlist
 
 
+def relname(base, path: str) -> str:
+    return Path(os.path.relpath(path, base)).as_posix()
+
+
 def load_ocsf(root: str) -> dict:
-    ocsf = {}
+    ocsf = {'.': {}}
     dlist = scandir(root)
     for dl in dlist:
         if dl.name in ('version.json', 'categories.json', 'dictionary.json'):
-            ocsf.update({dl.name: load_json(dl)})
-    for dn in ('enums', 'events', 'includes', 'objects', 'extensions', 'profiles', 'templates'):
-        print(f'    {dn}...')
-        ocsf.update({dn: load_dir(os.path.join(root, dn))})
+            ocsf['.'].update({dl.name: load_json(dl)})
+    if ocsf['.']:
+        for dn in ('enums', 'events', 'includes', 'objects', 'profiles', 'templates'):
+            print(f'    {dn}...')
+            ocsf.update({dn: load_dir(f'{root}/{dn}', f'{root}/{dn}')})
+        print('  Extensions:')
+        ocsf['extensions'] = load_ocsf(f'{root}/extensions')
     return ocsf
 
 
@@ -71,13 +82,13 @@ def dump_ocsf(ocsf: dict, root: str) -> None:
         dump_dir(ocsf[dn], os.path.join(root, dn))
 
 
-def load_dir(path: str) -> dict:
+def load_dir(base, path: str) -> dict:
     o = {}
     for entry in scandir(path):
         if entry.is_dir():
-            o.update({entry.name: load_dir(entry.path)})
+            o.update(load_dir(base, entry.path))
         elif os.path.splitext(entry.name)[1] == '.json':
-            o.update({entry.name: load_json(entry)})
+            o.update({relname(base, entry.path): load_json(entry)})
         else:
             print(f'  File {entry.path} ignored')
     return o
@@ -139,7 +150,7 @@ def make_jadn(ocsf: dict) -> dict:
 
     pkg = {
         'info': {
-            'package': f'https://ocsf.io/im/{ocsf["version.json"]["version"]}'
+            'package': f'https://ocsf.io/im/{ocsf["."]["version.json"]["version"]}'
         },
         'types': []
     }
@@ -155,7 +166,7 @@ def generate_ocsf(jadn_pkg: dict) -> dict:
 def create_im(ocsf_dir: str = OCSF_ROOT, output_dir: str = OUTPUT_DIR) -> None:
     print(f'JADN Version: {jadn.__version__}')
     ocsf = load_ocsf(ocsf_dir)
-    print(f'OCSF Version: {ocsf["version.json"]["version"]}')
+    print(f'OCSF Version: {ocsf["."]["version.json"]["version"]}')
     jadn_pkg = make_jadn(ocsf)
     os.makedirs(css_dir := os.path.join(output_dir, 'css'), exist_ok=True)
     shutil.copy(os.path.join(jadn.data_dir(), 'dtheme.css'), css_dir)
