@@ -77,7 +77,7 @@ def load_ocsf(root: str) -> dict:
 
 def dump_ocsf(ocsf: dict, root: str) -> None:
     for fn in ('version.json', 'categories.json', 'dictionary.json'):
-        dump_json(ocsf[fn], os.path.join(root, fn))
+        dump_json(ocsf['.'][fn], os.path.join(root, fn))
     for dn in ('enums', 'events', 'includes', 'objects', 'extensions', 'profiles', 'templates'):
         dump_dir(ocsf[dn], os.path.join(root, dn))
 
@@ -95,12 +95,15 @@ def load_dir(base, path: str) -> dict:
 
 
 def dump_dir(o: dict, root: str) -> None:
-    os.makedirs(root, exist_ok=True)
     for k, v in o.items():
-        if os.path.splitext(k)[1] == '.json':
-            dump_json(v, os.path.join(root, k))
+        path = os.path.join(*k.split('/'))
+        fpath = os.path.join(root, *os.path.split(path))
+        if os.path.splitext(path)[1] == '.json':
+            os.makedirs(os.path.join(root, *os.path.split(path)[:-1]), exist_ok=True)
+            dump_json(v, fpath)
         else:
-            dump_dir(v, os.path.join(root, k))
+            os.makedirs(fpath, exist_ok=True)
+            dump_dir(v, path)
 
 
 def load_json(dl: os.DirEntry) -> dict:
@@ -137,7 +140,14 @@ def make_jadn(ocsf: dict) -> dict:
             it.append([int(k), caption_to_fieldname(v['caption']), f'{v["caption"]}: {v.get("description", "")}'])
         return it
 
+    def make_category_enum(categories: dict) -> list:
+        items = [[v['uid'], k, f'{v["caption"]}: {v["description"]}'] for k, v in categories['attributes'].items()]
+        return [categories['caption'], 'Enumerated', [], categories['description'], items]
+
     def make_enums(enums: dict) -> list:
+        """
+        Make Enumerated types from files in "enums" directory, applying "defaults.json" values to each.
+        """
         defaults = []
         types = []
         if 'defaults.json' in enums:
@@ -154,6 +164,7 @@ def make_jadn(ocsf: dict) -> dict:
         },
         'types': []
     }
+    pkg['types'].append(make_category_enum(ocsf['.']['categories.json']))
     pkg['types'] += make_enums(ocsf['enums'])
     return pkg
 
