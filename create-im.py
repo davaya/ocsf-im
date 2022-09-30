@@ -57,7 +57,7 @@ def scandir(path: str) -> list:
 
 
 def relname(base, path: str) -> str:
-    return Path(os.path.relpath(path, base)).as_posix()
+    return Path(os.path.relpath(path.split('?')[0], base)).as_posix()
 
 
 def load_ocsf(root: str) -> dict:
@@ -134,15 +134,30 @@ def make_jadn(ocsf: dict) -> dict:
     def caption_to_fieldname(cap: str) -> str:
         return cap.lower().replace(' ', '_')
 
+    def obj_enum_to_typename(object_name: str, attr_name: str) -> str:
+        return '???'
+
+    def caption_to_typename(cap: str) -> str:
+        return cap.replace(' ', '-').capitalize()
+
     def get_enum(enum: dict) -> list:
         it = []
-        for k, v in enum['enum'].items():
+        for k, v in enum.items():
             it.append([int(k), caption_to_fieldname(v['caption']), f'{v["caption"]}: {v.get("description", "")}'])
-        return it
+        return sorted(it)
 
     def make_category_enum(categories: dict) -> list:
         items = [[v['uid'], k, f'{v["caption"]}: {v["description"]}'] for k, v in categories['attributes'].items()]
         return [categories['caption'], 'Enumerated', [], categories['description'], items]
+
+    def make_dictionary_enums(dictionary: dict) -> list:
+        assert set(dictionary) - {'caption', 'description', 'name', 'attributes', 'types'} == set()
+        types = []
+        for k, v in dictionary['attributes'].items():
+            if 'enum' in v:
+                ename = v['sibling'] if 'sibling' in v else k
+                types.append([ename.capitalize(), 'Enumerated', [], v['description'], get_enum(v['enum'])])
+        return types
 
     def make_enums(enums: dict) -> list:
         """
@@ -151,20 +166,19 @@ def make_jadn(ocsf: dict) -> dict:
         defaults = []
         types = []
         if 'defaults.json' in enums:
-            defaults = get_enum(enums['defaults.json'])
+            defaults = get_enum(enums['defaults.json']['enum'])
         for fn, fv in enums.items():
             if fn != 'defaults.json':
                 assert list(fv) == ["enum"]   # enum is the only property
-                types.append([filename_to_typename(fn), 'Enumerated', [], '', defaults + get_enum(fv)])
+                types.append([filename_to_typename(fn), 'Enumerated', [], '', defaults + get_enum(fv['enum'])])
         return types
 
-    pkg = {
-        'info': {
-            'package': f'https://ocsf.io/im/{ocsf["."]["version.json"]["version"]}'
-        },
-        'types': []
+    pkg = {'info': {
+        'package': f'https://ocsf.io/im/{ocsf["."]["version.json"]["version"]}'
+    },
+        'types': [make_category_enum(ocsf['.']['categories.json'])]
     }
-    pkg['types'].append(make_category_enum(ocsf['.']['categories.json']))
+    pkg['types'] += make_dictionary_enums(ocsf['.']['dictionary.json'])
     pkg['types'] += make_enums(ocsf['enums'])
     return pkg
 
