@@ -1,12 +1,14 @@
 # Understanding the OCSF Information Model
 
-This document describes an Information Model (IM) for the Open Cybersecurity Schema Framework (OCSF) and
-integration of information modeling into OCSF's Taxonomy/Ontology-based design approach.
+This document describes an Information Model (IM) for the Open Cybersecurity Schema Framework (OCSF),
+including integration of information modeling into OCSF's Taxonomy/Ontology-based design approach.
 OCSF's goal is to be "agnostic to storage format, data collection and ETL processes",
 and information modeling is a formal method to achieve that goal.
 Framework files are translated into an IM, a static schema that defines types used to implement
 the framework in a running system. The purpose of using the IM is to support multiple data formats
-("flavors") of serialized data and to enable lossless conversion of data instances across formats.
+("flavors") of serialized data and to ensure information equivalence regardless of data format.
+Equivalence is demonstrated by verifying that data instances can be converted from any data format
+to any other and back without loss - a "lossless round trip".
 
 ### What is an Information Model
 
@@ -18,6 +20,12 @@ Information modeling defines the desired meaning or behavior of information used
 of the data used to communicate that meaning. It thus provides the basis for defining "agnostic":
 two data instances (byte sequences) are equivalent if they correspond to the same information instance
 (value of a program variable).
+
+The information content of an instance can be no greater than the smallest data instance for which
+lossless round-trip conversion is possible. For example, an IPv4 address is 17 bytes of data in
+JSON string format ("192.168.101.213"), but can be converted to 4 byte RFC 791 format and back
+without loss. The information content of an IPv4 address can therefore be no greater than 4 bytes
+(32 bits), and the information model defines the IPv4 address type as a 4 byte value.
 
 **Serialization**: converting an information instance into a data instance in a specific data format.
 
