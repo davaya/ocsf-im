@@ -140,6 +140,9 @@ def make_jadn(ocsf: dict) -> dict:
     def caption_to_typename(cap: str) -> str:
         return cap.replace(' ', '-').capitalize()
 
+    def name_to_typename(vname: str, attr_name: str) -> str:
+        return f'{vname}_{attr_name.removesuffix("_id")}'.capitalize()
+
     def get_enum(enum: dict) -> list:
         it = []
         for k, v in enum.items():
@@ -173,6 +176,19 @@ def make_jadn(ocsf: dict) -> dict:
                 types.append([filename_to_typename(fn), 'Enumerated', [], '', defaults + get_enum(fv['enum'])])
         return types
 
+    def make_events(events: dict) -> list:
+        types = []
+        eprops = {}
+        for etype, evalue in events.items():
+            eprops.update({evalue['uid']: evalue['name']} if 'uid' in evalue else {})
+            for k, v in evalue['attributes'].items():
+                if k == '$include':
+                    pass
+                elif e := v.pop('enum', ''):
+                    types.append([name_to_typename(evalue['name'], k), 'Enumerated', [], '', get_enum(e)])
+                print(k)
+        return types
+
     pkg = {'info': {
         'package': f'https://ocsf.io/im/{ocsf["."]["version.json"]["version"]}'
     },
@@ -180,6 +196,7 @@ def make_jadn(ocsf: dict) -> dict:
     }
     pkg['types'] += make_dictionary_enums(ocsf['.']['dictionary.json'])
     pkg['types'] += make_enums(ocsf['enums'])
+    pkg['types'] += make_events(ocsf['events'])
     return pkg
 
 
