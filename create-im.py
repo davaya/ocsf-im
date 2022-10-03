@@ -151,7 +151,7 @@ def make_jadn(ocsf: dict) -> dict:
 
     def make_category_enum(categories: dict) -> list:
         items = [[v['uid'], k, f'{v["caption"]}: {v["description"]}'] for k, v in categories['attributes'].items()]
-        return [categories['caption'], 'Enumerated', [], categories['description'], items]
+        return [[categories['caption'], 'Enumerated', [], categories['description'], items]]
 
     def make_dictionary_enums(dictionary: dict) -> list:
         assert set(dictionary) - {'caption', 'description', 'name', 'attributes', 'types'} == set()
@@ -189,11 +189,11 @@ def make_jadn(ocsf: dict) -> dict:
                 print(k)
         return types
 
-    pkg = {'info': {
-        'package': f'https://ocsf.io/im/{ocsf["."]["version.json"]["version"]}'
-    },
-        'types': [make_category_enum(ocsf['.']['categories.json'])]
+    pkg = {
+        'info': {'package': f'https://ocsf.io/im/{ocsf["."]["version.json"]["version"]}'},
+        'types': []
     }
+    pkg['types'] += make_category_enum(ocsf['.']['categories.json'])
     pkg['types'] += make_dictionary_enums(ocsf['.']['dictionary.json'])
     pkg['types'] += make_enums(ocsf['enums'])
     pkg['types'] += make_events(ocsf['events'])
