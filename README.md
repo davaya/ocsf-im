@@ -1,10 +1,12 @@
 # Understanding the OCSF Information Model
 
-This document describes an Information Model (IM) for the Open Cybersecurity Schema Framework (OCSF), and
-compares Information-based and Taxonomy/Ontology-based design approaches. OCSF's goal is to be "agnostic
-to storage format, data collection and ETL processes", and information modeling is a formal method to
-achieve that goal. Framework files are translated into an IM, a document that defines all types
-used to implement the framework in a running system.
+This document describes an Information Model (IM) for the Open Cybersecurity Schema Framework (OCSF) and
+integration of information modeling into OCSF's Taxonomy/Ontology-based design approach.
+OCSF's goal is to be "agnostic to storage format, data collection and ETL processes",
+and information modeling is a formal method to achieve that goal.
+Framework files are translated into an IM, a static schema that defines types used to implement
+the framework in a running system. The purpose of using the IM is to support multiple data formats
+("flavors") of serialized data and to enable lossless conversion of data instances across formats.
 
 ### What is an Information Model
 
@@ -21,10 +23,7 @@ two data instances (byte sequences) are equivalent if they correspond to the sam
 
 **Data Format**: 
 
-For example, a Boolean
-
-
-information instance has the effect of being either true or false.
+For example, a Boolean information instance has the effect of being either true or false.
 A process is agnostic if, for example, it treats data values of 0 (an integer), false (a JSON literal),
 "False" (a five-character string), "" (an empty string), etc., as being false.
 
