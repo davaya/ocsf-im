@@ -56,3 +56,6 @@ https://github.com/ocsf/ocsf-docs/blob/main/Understanding%20OCSF.md
 
 [^3]:
     *"OMG Unified Modeling Language"*, Object Management Group, https://www.omg.org/spec/UML/2.5.1/PDF
+
+[^4]:
+    *"JSON Abstract Data Notation"*, OASIS, https://github.com/oasis-tcs/openc2-jadn
