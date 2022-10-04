@@ -5,7 +5,7 @@ including integration of information modeling into OCSF's Taxonomy/Ontology-base
 OCSF's goal is to be "agnostic to storage format, data collection and ETL processes"[^1],
 and information modeling is a formal method to achieve that goal.
 Framework files are translated into an IM, a static schema that defines types used to implement
-the framework in a running system. The purpose of using the IM is to support multiple data formats
+the framework in a running system. The reason for using an IM is to support multiple data formats
 ("flavors") of serialized data and to ensure information equivalence regardless of data format.
 Information equivalence is demonstrated by verifying that data instances can be converted from
 any data format to any other and back without loss - a "lossless round trip".
@@ -34,16 +34,18 @@ to and from more concise data formats using one bit per instance, or JSON number
 
 ### What is an Information Model
 
-An information model is a collection of datatypes. As defined by UML[^3], a datatypes is a type whose
+An information model is a collection of datatypes. As defined by UML[^3], a datatype is a type whose
 instances are distinguished only by their value. Datatypes do not have complex internal structure
 such as class methods, inheritance, or relationships, so serializing their values is straightforward.
 An information modeling language such as JADN[^4] defines a small number of base types from which
-information models are constructed.
+all information models are constructed.
+
+![Base Types](images/ocsf-jadn.png)
 
 ### Why define an Information Model
 
 * Separate business logic from data formats
-  * Data 
+  * Serialization rules for each base type are defined once per data format, then re-used for all applications.
 
 ### Examples
 
