@@ -4,11 +4,11 @@ This document describes an Information Model (IM) for the Open Cybersecurity Sch
 including integration of information modeling into OCSF's Taxonomy/Ontology-based design approach.
 OCSF's goal is to be "agnostic to storage format, data collection and ETL processes"[^1],
 and information modeling is a formal method to achieve that goal.
-Framework files are translated into an IM, a static schema that defines types used to implement
-the framework in a running system. The reason for using an IM is to support multiple data formats
-("flavors") of serialized data and to ensure information equivalence regardless of data format.
+Framework files are translated into an information model, a static schema that defines types used to
+implement the framework in running systems. The reason for using an IM is to support multiple data
+formats ("flavors") of serialized data and to ensure information equivalence regardless of data format.
 Information equivalence is demonstrated by verifying that data instances can be converted from
-any data format to any other and back without loss - a "lossless round trip".
+any data format to any other and back (a round trip) without loss.
 
 ### What is Information
 
@@ -48,6 +48,8 @@ all information models are constructed.
   * Serialization rules for each base type are defined once per data format, then re-used for all applications.
 
 ### Examples
+
+### References
 
 [^1]:
     *"Understanding the Open Cybersecurity Schema Framework"*,

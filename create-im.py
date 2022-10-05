@@ -143,6 +143,9 @@ def make_jadn(ocsf: dict) -> dict:
     def name_to_typename(vname: str, attr_name: str) -> str:
         return f'{vname}_{attr_name.removesuffix("_id")}'.capitalize()
 
+    def fieldname_to_typename(fname: str) -> str:
+        return fname.capitalize()
+
     def get_enum(enum: dict) -> list:
         it = []
         for k, v in enum.items():
@@ -187,6 +190,8 @@ def make_jadn(ocsf: dict) -> dict:
                 elif e := v.pop('enum', ''):
                     types.append([name_to_typename(evalue['name'], k), 'Enumerated', [], '', get_enum(e)])
                 print(k)
+        types.append(['Event', 'Choice', [], '',
+                      sorted([[k, v, fieldname_to_typename(v), [], ''] for k, v in eprops.items()])])
         return types
 
     pkg = {
