@@ -1,8 +1,10 @@
 import fire
 import jadn
+# import jmespath
 import json
 import os
 from pathlib import Path
+from functools import reduce
 import shutil
 from io import TextIOWrapper
 from urllib.request import urlopen, Request
@@ -128,6 +130,9 @@ def make_jadn(ocsf: dict) -> dict:
     """
     Construct a JADN Information Model (abstract schema) from the OCSF Framework data
     """
+    def xpath(root, path, sep='/'):
+        return reduce(lambda acc, nxt: acc[nxt], path.split(sep), root)
+
     def filename_to_typename(fn: str) -> str:
         return os.path.splitext(fn)[0].capitalize()
 
@@ -194,6 +199,17 @@ def make_jadn(ocsf: dict) -> dict:
                       sorted([[k, v, fieldname_to_typename(v), [], ''] for k, v in eprops.items()])])
         return types
 
+    def preprocess_includes(ocsf: dict) -> None:
+        for top_dir, files in ocsf.items():
+            for file, val in files.items():
+                print(f'{file:>30} {val.get("caption", "?")}')
+                if val.get('attributes', {}).get('$include', None):
+                    includes = val['attributes'].pop('$include')
+                    for inc in [includes] if isinstance(includes, str) else includes:
+                        val['attributes'].update(xpath(ocsf, inc)['attributes'])
+                        print(f'${inc}')
+
+    preprocess_includes(ocsf)
     pkg = {
         'info': {'package': f'https://ocsf.io/im/{ocsf["."]["version.json"]["version"]}'},
         'types': []

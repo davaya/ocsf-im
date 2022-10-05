@@ -22,22 +22,21 @@ two data instances (byte sequences) are equivalent if they correspond to the sam
 (value of a program variable).
 
 The information content of an instance can be no greater than the smallest data instance for which
-lossless round-trip conversion is possible. For example, an IPv4 address is 17 bytes of JSON
-string data ("192.168.101.213"), but can be converted to 4 byte RFC 791 format and back
+lossless round-trip conversion is possible. For example, an IPv4 address is commonly represented using
+17 bytes of JSON string data ("192.168.101.213"), but can be converted to 4 byte RFC 791 format and back
 without loss. The information content of an IPv4 address can therefore be no greater than 4 bytes
 (32 bits), and the information model defines the IPv4 address type as a byte sequence of length 4.
 
 Even though the JSON literals `true` and `false` are 32 and 40 data bits respectively, they are Boolean
-values with an information content of exactly one bit, which means they can be translated losslessly
-to and from more concise data formats using one bit per instance, or JSON numbers 0 and 1 using
-8 bits per instance.
+values with an information content of exactly one bit, which means they can be converted to and from
+more concise data formats using one bit per instance, or JSON numbers 0 and 1 using 8 bits per instance.
 
 ### What is an Information Model
 
 An information model is a collection of datatypes. As defined by UML[^3], a datatype is a type whose
 instances are distinguished only by their value. Datatypes do not have complex internal structure
 such as class methods, inheritance, or relationships, so serializing their values is straightforward.
-An information modeling language such as JADN[^4] defines a small number of base types from which
+An information modeling language such as JADN[^4] defines a small number of core types from which
 all information models are constructed.
 
 ![Base Types](images/ocsf-jadn.png)
