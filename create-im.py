@@ -174,14 +174,10 @@ def make_jadn(ocsf: dict) -> dict:
         """
         Make Enumerated types from files in "enums" directory, applying "defaults.json" values to each.
         """
-        defaults = []
         types = []
-        if 'defaults.json' in enums:
-            defaults = get_enum(enums['defaults.json']['enum'])
         for fn, fv in enums.items():
-            if fn != 'defaults.json':
-                assert list(fv) == ["enum"]   # enum is the only property
-                types.append([filename_to_typename(fn), 'Enumerated', [], '', defaults + get_enum(fv['enum'])])
+            assert list(fv) == ["enum"]   # enum is the only property
+            types.append([filename_to_typename(fn), 'Enumerated', [], '', get_enum(fv['enum'])])
         return types
 
     def make_events(events: dict) -> list:
@@ -190,14 +186,22 @@ def make_jadn(ocsf: dict) -> dict:
         for etype, evalue in events.items():
             eprops.update({evalue['uid']: evalue['name']} if 'uid' in evalue else {})
             for k, v in evalue['attributes'].items():
-                if k == '$include':
-                    pass
-                elif e := v.pop('enum', ''):
+                if e := v.get('enum', ''):
                     types.append([name_to_typename(evalue['name'], k), 'Enumerated', [], '', get_enum(e)])
                 print(k)
         types.append(['Event', 'Choice', [], '',
                       sorted([[k, v, fieldname_to_typename(v), [], ''] for k, v in eprops.items()])])
         return types
+
+    def preprocess_enums(ocsf: dict) -> None:
+        for top_dir, files in ocsf.items():
+            for file, val in files.items():
+                if attrs := val.get('attributes', {}):
+                    for k, v in attrs.items():
+                        if 'enum' in v:
+                            print(f'{top_dir:>10} {file:>35} {len(v):2}  @ {k} ({val.get("name", "?")}, {val["caption"]})')
+                        elif '$include' in v:
+                            print(f'{top_dir:>10} {file:>35} {len(v):2}  +{v["$include"]} {k} ({val.get("name", "?")}, {val["caption"]})')
 
     def preprocess_includes(ocsf: dict) -> None:
         for top_dir, files in ocsf.items():
@@ -205,14 +209,9 @@ def make_jadn(ocsf: dict) -> dict:
                 if includes := val.get('attributes', {}).pop('$include', None):
                     print(f'{top_dir:>10} {file:>35}  ${includes}')
                     for inc in [includes] if isinstance(includes, str) else includes:
-                        val['attributes'].update(xpath(ocsf, inc)['attributes'])
-                elif attrs := val.get('attributes', {}):
-                    for k, v in attrs.items():
-                        if 'enum' in v:
-                            print(f'{top_dir:>10} {file:>35} {len(v):2}  @ {k} ({val.get("name", "?")}, {val["caption"]})')
-                        elif '$include' in v:
-                            print(f'{top_dir:>10} {file:>35} {len(v):2}  +{v["$include"]} {k} ({val.get("name", "?")}, {val["caption"]})')
+                        val['attributes'].update(xpath(ocsf, inc)['attributes'])    # FIXME: update each attr, don't overwrite
 
+    preprocess_enums(ocsf)
     preprocess_includes(ocsf)
     pkg = {
         'info': {'package': f'https://ocsf.io/im/{ocsf["."]["version.json"]["version"]}'},
@@ -233,6 +232,8 @@ def generate_ocsf(jadn_pkg: dict) -> dict:
 def create_im(ocsf_dir: str = OCSF_ROOT, output_dir: str = OUTPUT_DIR) -> None:
     print(f'JADN Version: {jadn.__version__}')
     ocsf = load_ocsf(ocsf_dir)
+    os.makedirs(odir := os.path.join(output_dir, 'ocsf-orig'), exist_ok=True)
+    dump_ocsf(ocsf, odir)       # Original files from repo
     print(f'OCSF Version: {ocsf["."]["version.json"]["version"]}')
     jadn_pkg = make_jadn(ocsf)
     os.makedirs(css_dir := os.path.join(output_dir, 'css'), exist_ok=True)
@@ -244,13 +245,13 @@ def create_im(ocsf_dir: str = OCSF_ROOT, output_dir: str = OUTPUT_DIR) -> None:
     jadn.convert.html_dump(jadn_pkg, os.path.join(output_dir, f'{output_name}.html'))
     jadn.translate.json_schema_dump(jadn_pkg, os.path.join(output_dir, f'{output_name}.json'))
 
-    # Copy relevant OCSF files to enable diff with generated files.
-    os.makedirs(copy_dir := os.path.join(output_dir, 'ocsf-copy'), exist_ok=True)
-    dump_ocsf(ocsf, copy_dir)
+    os.makedirs(odir := os.path.join(output_dir, 'ocsf-processed'), exist_ok=True)
+    dump_ocsf(ocsf, odir)       # Pre-processed (normalized) framework files
+
     # Synthesize OCSF files from IM, to verify what information is preserved.
     ocsf_gen = generate_ocsf(jadn_pkg)
-    os.makedirs(gen_dir := os.path.join(output_dir, 'ocsf-generated'), exist_ok=True)
-    # dump_ocsf(ocsf_gen, gen_dir)
+    os.makedirs(odir := os.path.join(output_dir, 'ocsf-generated'), exist_ok=True)
+    # dump_ocsf(ocsf_gen, odir)
 
 
 if __name__ == '__main__':
