@@ -202,12 +202,10 @@ def make_jadn(ocsf: dict) -> dict:
     def preprocess_includes(ocsf: dict) -> None:
         for top_dir, files in ocsf.items():
             for file, val in files.items():
-                print(f'{file:>30} {val.get("caption", "?")}')
-                if val.get('attributes', {}).get('$include', None):
-                    includes = val['attributes'].pop('$include')
+                if includes := val.get('attributes', {}).pop('$include', None):
+                    print(f'{top_dir:>10} {file:>40}  ${includes}')
                     for inc in [includes] if isinstance(includes, str) else includes:
                         val['attributes'].update(xpath(ocsf, inc)['attributes'])
-                        print(f'${inc}')
 
     preprocess_includes(ocsf)
     pkg = {
