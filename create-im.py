@@ -203,9 +203,15 @@ def make_jadn(ocsf: dict) -> dict:
         for top_dir, files in ocsf.items():
             for file, val in files.items():
                 if includes := val.get('attributes', {}).pop('$include', None):
-                    print(f'{top_dir:>10} {file:>40}  ${includes}')
+                    print(f'{top_dir:>10} {file:>35}  ${includes}')
                     for inc in [includes] if isinstance(includes, str) else includes:
                         val['attributes'].update(xpath(ocsf, inc)['attributes'])
+                elif attrs := val.get('attributes', {}):
+                    for k, v in attrs.items():
+                        if 'enum' in v:
+                            print(f'{top_dir:>10} {file:>35} {len(v):2}  @ {k} ({val.get("name", "?")}, {val["caption"]})')
+                        elif '$include' in v:
+                            print(f'{top_dir:>10} {file:>35} {len(v):2}  +{v["$include"]} {k} ({val.get("name", "?")}, {val["caption"]})')
 
     preprocess_includes(ocsf)
     pkg = {
