@@ -68,6 +68,29 @@ def xpath(root, path, sep='/'):
     return reduce(lambda acc, nxt: acc[nxt], path.split(sep), root)
 
 
+def topo_sort(items: dict[str, list[str]]) -> tuple[list[str], list[str]]:
+    """
+    Topological sort with locality
+    Sorts a list of (item: (dependencies)) pairs so that 1) all dependency items are listed before the parent item,
+    and 2) dependencies are listed in the given order and as close to the parent as possible.
+    Returns the sorted list of items and a list of root items.  A single root indicates a fully-connected hierarchy;
+    multiple roots indicate disconnected items or hierarchies, and no roots indicate a dependency cycle.
+    """
+    def walk_tree(it: str) -> None:
+        for i in items[it]:
+            if i not in out:
+                out.append(i)
+                walk_tree(i)
+
+    out: list[str] = []
+    roots = list({k for k in items} - {v for d in items.values() for v in d})
+    for item in roots:
+        out.append(item)
+        walk_tree(item)
+    out = out if out else [i[0] for i in items]     # if cycle detected, don't sort
+    return out, roots
+
+
 def load_ocsf(root: str) -> dict:
     ocsf = {'.': {}}
     dlist = scandir(root)
@@ -207,7 +230,10 @@ def make_jadn(ocsf: dict) -> dict:
     return pkg
 
 
-def flatten(ocsf: dict) -> None:
+def normalize(ocsf: dict) -> None:
+    """
+    Preprocess framework files to inline include and extend directives
+    """
     def preprocess_enum_includes(ocsf: dict) -> None:
         refs = defaultdict(int)
         for top_dir, files in ocsf.items():
@@ -219,6 +245,7 @@ def flatten(ocsf: dict) -> None:
                             attrs[k].update(xpath(ocsf, inc))
                             refs[inc] += 1
         print('Shared enums:', {k: refs[k] for k in refs if refs[k] != 1})
+        # TODO: remove files from enum directory that aren't shared and have been inlined
 
     def preprocess_includes(ocsf: dict) -> None:
         for top_dir, files in ocsf.items():
@@ -236,11 +263,15 @@ def flatten(ocsf: dict) -> None:
     def preprocess_inherits(ocsf: dict) -> None:
         extends = {}
         paths = {}
+        deps = defaultdict(list)
         for top_dir, files in ocsf.items():
+            [deps[v['extends']].append(v['name']) for k, v in files.items() if top_dir not in 'templates' and 'extends' in v]
             extends.update({v['name']: v['extends'] for k, v in files.items() if 'extends' in v})
             paths.update({v['name']: (top_dir, k) for k, v in files.items() if 'name' in v})
         assert set(extends) - set(paths) == set()
         print(f' Extends: {len(extends)}, Names: {len(paths)}')
+        names, roots = topo_sort(deps)
+        print(f' Root types: {roots}, Types: {len(names)}')
 
     preprocess_enum_includes(ocsf)
     preprocess_includes(ocsf)
@@ -258,7 +289,7 @@ def create_im(ocsf_dir: str = OCSF_ROOT, output_dir: str = OUTPUT_DIR) -> None:
     os.makedirs(odir := os.path.join(output_dir, 'ocsf-orig'), exist_ok=True)
     dump_ocsf(ocsf, odir)       # Original files from repo
     print(f'OCSF Version: {ocsf["."]["version.json"]["version"]}')
-    flatten(ocsf)
+    normalize(ocsf)
     jadn_pkg = make_jadn(ocsf)
     os.makedirs(css_dir := os.path.join(output_dir, 'css'), exist_ok=True)
     shutil.copy(os.path.join(jadn.data_dir(), 'dtheme.css'), css_dir)
