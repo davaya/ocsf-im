@@ -36,15 +36,25 @@ more concise data formats using one bit per instance, or JSON numbers 0 and 1 us
 An information model is a collection of datatypes. As defined by UML[^3], a datatype is a type whose
 instances are distinguished only by their value. Datatypes do not have complex internal structure
 such as class methods, inheritance, or relationships, so serializing their values is straightforward.
-An information modeling language such as JADN[^4] defines a small number of core types from which
-all information models are constructed.
+An information modeling language such as JADN[^4] defines a small number of base types from which
+all information models are constructed. Serialization rules are defined for just the base types,
+and then apply to all application data constructed using those types.
 
 ![Base Types](images/ocsf-jadn.png)
 
-### Why define an Information Model
+### Why Use an Information Model
 
-* Separate business logic from data formats
+* It supports different views of the identical information
+* It separates significant information from insignificant data
+* It is declarative
+* It separates business logic from data formats
   * Serialization rules for each base type are defined once per data format, then re-used for all applications.
+* An IM is itself information
+  * It can be losslessly converted among multiple data formats, meaning
+  that it can be serialized and communicated in the same manner as the information it describes.
+
+
+
 
 ### Examples
 

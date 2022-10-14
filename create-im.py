@@ -1,3 +1,4 @@
+import copy
 import fire
 import jadn
 # import jmespath
@@ -188,20 +189,18 @@ def make_jadn(ocsf: dict) -> dict:
             for k, v in evalue['attributes'].items():
                 if e := v.get('enum', ''):
                     types.append([name_to_typename(evalue['name'], k), 'Enumerated', [], '', get_enum(e)])
-                print(k)
         types.append(['Event', 'Choice', [], '',
                       sorted([[k, v, fieldname_to_typename(v), [], ''] for k, v in eprops.items()])])
         return types
 
-    def preprocess_enums(ocsf: dict) -> None:
+    def preprocess_enum_includes(ocsf: dict) -> None:
         for top_dir, files in ocsf.items():
             for file, val in files.items():
                 if attrs := val.get('attributes', {}):
                     for k, v in attrs.items():
-                        if 'enum' in v:
-                            print(f'{top_dir:>10} {file:>35} {len(v):2}  @ {k} ({val.get("name", "?")}, {val["caption"]})')
-                        elif '$include' in v:
-                            print(f'{top_dir:>10} {file:>35} {len(v):2}  +{v["$include"]} {k} ({val.get("name", "?")}, {val["caption"]})')
+                        if isinstance(v, dict) and (inc := v.pop('$include', None)):
+                            assert inc.startswith('enums/')
+                            attrs[k].update(xpath(ocsf, inc))
 
     def preprocess_includes(ocsf: dict) -> None:
         for top_dir, files in ocsf.items():
@@ -209,10 +208,25 @@ def make_jadn(ocsf: dict) -> dict:
                 if includes := val.get('attributes', {}).pop('$include', None):
                     print(f'{top_dir:>10} {file:>35}  ${includes}')
                     for inc in [includes] if isinstance(includes, str) else includes:
-                        val['attributes'].update(xpath(ocsf, inc)['attributes'])    # FIXME: update each attr, don't overwrite
+                        for k, v in xpath(ocsf, inc)['attributes'].items():
+                            vtemp = copy.copy(v)
+                            if k in val['attributes']:
+                                vtemp.update(val['attributes'][k])      # Event properties override Profile properties
+                            val['attributes'][k] = vtemp
+                            # TODO: check if multiple includes have conflicting attribute definitions
 
-    preprocess_enums(ocsf)
+    def preprocess_inherits(ocsf: dict) -> None:
+        extends = {}
+        paths = {}
+        for top_dir, files in ocsf.items():
+            extends.update({v['name']: v['extends'] for k, v in files.items() if 'extends' in v})
+            paths.update({v['name']: (top_dir, k) for k, v in files.items() if 'name' in v})
+        assert set(extends) - set(paths) == set()
+        print(f' Extends: {len(extends)}, Names: {len(paths)}')
+
+    preprocess_enum_includes(ocsf)
     preprocess_includes(ocsf)
+    preprocess_inherits(ocsf)
     pkg = {
         'info': {'package': f'https://ocsf.io/im/{ocsf["."]["version.json"]["version"]}'},
         'types': []
