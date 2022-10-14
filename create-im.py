@@ -4,10 +4,11 @@ import jadn
 # import jmespath
 import json
 import os
-from pathlib import Path
-from functools import reduce
 import shutil
+from collections import defaultdict
+from functools import reduce
 from io import TextIOWrapper
+from pathlib import Path
 from urllib.request import urlopen, Request
 from urllib.parse import urlparse
 
@@ -61,6 +62,10 @@ def scandir(path: str) -> list:
 
 def relname(base, path: str) -> str:
     return Path(os.path.relpath(path.split('?')[0], base)).as_posix()
+
+
+def xpath(root, path, sep='/'):
+    return reduce(lambda acc, nxt: acc[nxt], path.split(sep), root)
 
 
 def load_ocsf(root: str) -> dict:
@@ -131,8 +136,6 @@ def make_jadn(ocsf: dict) -> dict:
     """
     Construct a JADN Information Model (abstract schema) from the OCSF Framework data
     """
-    def xpath(root, path, sep='/'):
-        return reduce(lambda acc, nxt: acc[nxt], path.split(sep), root)
 
     def filename_to_typename(fn: str) -> str:
         return os.path.splitext(fn)[0].capitalize()
@@ -193,7 +196,20 @@ def make_jadn(ocsf: dict) -> dict:
                       sorted([[k, v, fieldname_to_typename(v), [], ''] for k, v in eprops.items()])])
         return types
 
+    pkg = {
+        'info': {'package': f'https://ocsf.io/im/{ocsf["."]["version.json"]["version"]}'},
+        'types': []
+    }
+    pkg['types'] += make_category_enum(ocsf['.']['categories.json'])
+    pkg['types'] += make_dictionary_enums(ocsf['.']['dictionary.json'])
+    pkg['types'] += make_enums(ocsf['enums'])
+    pkg['types'] += make_events(ocsf['events'])
+    return pkg
+
+
+def flatten(ocsf: dict) -> None:
     def preprocess_enum_includes(ocsf: dict) -> None:
+        refs = defaultdict(int)
         for top_dir, files in ocsf.items():
             for file, val in files.items():
                 if attrs := val.get('attributes', {}):
@@ -201,6 +217,8 @@ def make_jadn(ocsf: dict) -> dict:
                         if isinstance(v, dict) and (inc := v.pop('$include', None)):
                             assert inc.startswith('enums/')
                             attrs[k].update(xpath(ocsf, inc))
+                            refs[inc] += 1
+        print('Shared enums:', {k: refs[k] for k in refs if refs[k] != 1})
 
     def preprocess_includes(ocsf: dict) -> None:
         for top_dir, files in ocsf.items():
@@ -227,15 +245,6 @@ def make_jadn(ocsf: dict) -> dict:
     preprocess_enum_includes(ocsf)
     preprocess_includes(ocsf)
     preprocess_inherits(ocsf)
-    pkg = {
-        'info': {'package': f'https://ocsf.io/im/{ocsf["."]["version.json"]["version"]}'},
-        'types': []
-    }
-    pkg['types'] += make_category_enum(ocsf['.']['categories.json'])
-    pkg['types'] += make_dictionary_enums(ocsf['.']['dictionary.json'])
-    pkg['types'] += make_enums(ocsf['enums'])
-    pkg['types'] += make_events(ocsf['events'])
-    return pkg
 
 
 def generate_ocsf(jadn_pkg: dict) -> dict:
@@ -249,6 +258,7 @@ def create_im(ocsf_dir: str = OCSF_ROOT, output_dir: str = OUTPUT_DIR) -> None:
     os.makedirs(odir := os.path.join(output_dir, 'ocsf-orig'), exist_ok=True)
     dump_ocsf(ocsf, odir)       # Original files from repo
     print(f'OCSF Version: {ocsf["."]["version.json"]["version"]}')
+    flatten(ocsf)
     jadn_pkg = make_jadn(ocsf)
     os.makedirs(css_dir := os.path.join(output_dir, 'css'), exist_ok=True)
     shutil.copy(os.path.join(jadn.data_dir(), 'dtheme.css'), css_dir)
