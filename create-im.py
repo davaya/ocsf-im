@@ -71,10 +71,12 @@ def xpath(root, path, sep='/'):
 def topo_sort(items: dict[str, list[str]]) -> tuple[list[str], list[str]]:
     """
     Topological sort with locality
-    Sorts a list of (item: (dependencies)) pairs so that 1) all dependency items are listed before the parent item,
+    Sorts a list of (item: (dependencies)) pairs so that 1) all dependency items are listed after the parent item,
     and 2) dependencies are listed in the given order and as close to the parent as possible.
-    Returns the sorted list of items and a list of root items.  A single root indicates a fully-connected hierarchy;
-    multiple roots indicate disconnected items or hierarchies, and no roots indicate a dependency cycle.
+    Returns the sorted list of items and a list of root items.
+    * A single root indicates a fully-connected tree
+    * Multiple roots indicate a forest (multiple trees) plus standalone items
+    * No roots indicate a dependency cycle.
     """
     def walk_tree(it: str) -> None:
         for i in items[it]:
@@ -87,7 +89,7 @@ def topo_sort(items: dict[str, list[str]]) -> tuple[list[str], list[str]]:
     for item in roots:
         out.append(item)
         walk_tree(item)
-    out = out if out else [i[0] for i in items]     # if cycle detected, don't sort
+    out = out if out else [k for k in items]     # if cycle detected, don't sort
     return out, roots
 
 
@@ -261,17 +263,35 @@ def normalize(ocsf: dict) -> None:
                             # TODO: check if multiple includes have conflicting attribute definitions
 
     def preprocess_inherits(ocsf: dict) -> None:
-        extends = {}
+        for top_dir, files in ocsf.items():
+            if top_dir not in ('templates'):
+                index = {ocsf[top_dir][f].get('name', '?'): f for f in ocsf[top_dir]}
+                for item in files.values():
+                    if ext := item.pop('extends', ''):
+                        base = copy.deepcopy(ocsf[top_dir][index[ext]])
+                        dicts = [k for k, v in item.items() if isinstance(v, dict) and k != 'attributes']
+                        print(f"{item['name']:>30} {set(item['attributes']).intersection(set(base))} +{dicts}")
+                        for it in item:
+                            if it in ('attributes', 'associations', 'constraints'):
+                                for k in item[it]:
+                                    base[it].update(item[it])
+                            else:
+                                assert not isinstance(item[it], dict)
+                                base[it] = item[it]
+                        item = base
+
+        return
+
         paths = {}
         deps = defaultdict(list)
         for top_dir, files in ocsf.items():
-            [deps[v['extends']].append(v['name']) for k, v in files.items() if top_dir not in 'templates' and 'extends' in v]
-            extends.update({v['name']: v['extends'] for k, v in files.items() if 'extends' in v})
-            paths.update({v['name']: (top_dir, k) for k, v in files.items() if 'name' in v})
-        assert set(extends) - set(paths) == set()
-        print(f' Extends: {len(extends)}, Names: {len(paths)}')
+            if top_dir not in ('templates'):
+                [deps[v['extends']].append(v['name']) for k, v in files.items() if 'extends' in v]
+                paths.update({v['name']: (top_dir, k) for k, v in files.items() if 'name' in v})
+        assert set(deps) - set(paths) == set()
         names, roots = topo_sort(deps)
-        print(f' Root types: {roots}, Types: {len(names)}')
+        print(f' Extends: Paths: {len(paths)}, Connected: {len(deps)}={len(names)},'
+            + f' Standalone: {len(set(paths) - set(names))}, Roots: {roots}')
 
     preprocess_enum_includes(ocsf)
     preprocess_includes(ocsf)
