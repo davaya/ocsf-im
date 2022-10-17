@@ -262,36 +262,26 @@ def normalize(ocsf: dict) -> None:
                             val['attributes'][k] = vtemp
                             # TODO: check if multiple includes have conflicting attribute definitions
 
+    def mergedict(item: dict, base: dict) -> None:
+        for k in base:
+            if k in item:
+                if isinstance(item[k], dict) and isinstance(base[k], dict):
+                    mergedict(item[k], base[k])
+                elif isinstance(item[k], dict) or isinstance(base[k], dict):
+                    print(f'MergeDict property mismatch: {k} {item[k]} <- {base[k]}')
+                elif isinstance(item[k], list) and isinstance(base[k], list):
+                    item[k] += list(set(base[k]) - set(item[k]))
+            else:
+                item[k] = base[k]
+
     def preprocess_inherits(ocsf: dict) -> None:
         for top_dir, files in ocsf.items():
             if top_dir not in ('templates'):
                 index = {ocsf[top_dir][f].get('name', '?'): f for f in ocsf[top_dir]}
                 for item in files.values():
                     if ext := item.pop('extends', ''):
-                        base = copy.deepcopy(ocsf[top_dir][index[ext]])
-                        dicts = [k for k, v in item.items() if isinstance(v, dict) and k != 'attributes']
-                        print(f"{item['name']:>30} {set(item['attributes']).intersection(set(base))} +{dicts}")
-                        for it in item:
-                            if it in ('attributes', 'associations', 'constraints'):
-                                for k in item[it]:
-                                    base[it].update(item[it])
-                            else:
-                                assert not isinstance(item[it], dict)
-                                base[it] = item[it]
-                        item = base
-
-        return
-
-        paths = {}
-        deps = defaultdict(list)
-        for top_dir, files in ocsf.items():
-            if top_dir not in ('templates'):
-                [deps[v['extends']].append(v['name']) for k, v in files.items() if 'extends' in v]
-                paths.update({v['name']: (top_dir, k) for k, v in files.items() if 'name' in v})
-        assert set(deps) - set(paths) == set()
-        names, roots = topo_sort(deps)
-        print(f' Extends: Paths: {len(paths)}, Connected: {len(deps)}={len(names)},'
-            + f' Standalone: {len(set(paths) - set(names))}, Roots: {roots}')
+                        base = ocsf[top_dir][index[ext]]
+                        mergedict(item, base)
 
     preprocess_enum_includes(ocsf)
     preprocess_includes(ocsf)
