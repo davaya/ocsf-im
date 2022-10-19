@@ -263,6 +263,9 @@ def normalize(ocsf: dict) -> None:
                             # TODO: check if multiple includes have conflicting attribute definitions
 
     def mergedict(item: dict, base: dict) -> None:
+        """
+        Apply default values from base tree into a correspondingly-shaped item tree
+        """
         for k in base:
             if k in item:
                 if isinstance(item[k], dict) and isinstance(base[k], dict):
@@ -296,10 +299,14 @@ def generate_ocsf(jadn_pkg: dict) -> dict:
 def create_im(ocsf_dir: str = OCSF_ROOT, output_dir: str = OUTPUT_DIR) -> None:
     print(f'JADN Version: {jadn.__version__}')
     ocsf = load_ocsf(ocsf_dir)
-    os.makedirs(odir := os.path.join(output_dir, 'ocsf-orig'), exist_ok=True)
-    dump_ocsf(ocsf, odir)       # Original files from repo
     print(f'OCSF Version: {ocsf["."]["version.json"]["version"]}')
+
+    os.makedirs(odir := os.path.join(output_dir, 'ocsf-orig'), exist_ok=True)
+    dump_ocsf(ocsf, odir)       # Original framework files
     normalize(ocsf)
+    os.makedirs(odir := os.path.join(output_dir, 'ocsf-normalized'), exist_ok=True)
+    dump_ocsf(ocsf, odir)       # Pre-processed (normalized) framework files
+
     jadn_pkg = make_jadn(ocsf)
     os.makedirs(css_dir := os.path.join(output_dir, 'css'), exist_ok=True)
     shutil.copy(os.path.join(jadn.data_dir(), 'dtheme.css'), css_dir)
@@ -309,9 +316,6 @@ def create_im(ocsf_dir: str = OCSF_ROOT, output_dir: str = OUTPUT_DIR) -> None:
     jadn.convert.markdown_dump(jadn_pkg, os.path.join(output_dir, f'{output_name}.md'))
     jadn.convert.html_dump(jadn_pkg, os.path.join(output_dir, f'{output_name}.html'))
     jadn.translate.json_schema_dump(jadn_pkg, os.path.join(output_dir, f'{output_name}.json'))
-
-    os.makedirs(odir := os.path.join(output_dir, 'ocsf-processed'), exist_ok=True)
-    dump_ocsf(ocsf, odir)       # Pre-processed (normalized) framework files
 
     # Synthesize OCSF files from IM, to verify what information is preserved.
     ocsf_gen = generate_ocsf(jadn_pkg)
